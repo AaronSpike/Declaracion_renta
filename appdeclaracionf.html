@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="es-CO">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Declaración de Renta Personas Naturales · ContadoresMD</title>
+  <meta name="description" content="Declaración de Renta para personas naturales en Colombia. ContadoresMD: especialistas con maestría y experiencia docente. Atención remota en 24–48 h." />
+  <meta name="color-scheme" content="light only" />
+
+  <!-- Favicon: usa el logo sin fondo. Debe estar en la misma carpeta que este HTML -->
+  <link rel="icon" type="image/png" href="Logo contadores MD sin fondo.png" />
+
+  <style>
+    :root{
+      --c-primary:#0E5F76; --c-accent:#18A999;
+      --c-bg:#0a1b22; --c-bg-2:#0c2230;
+      --c-surface:#F6F9FC; --c-text:#111827;
+      --radius:18px; --shadow:0 8px 24px rgba(0,0,0,.25);
+      --glass:rgba(255,255,255,.10); --glass-border:1px solid rgba(255,255,255,.18);
+
+      /* === LOGO ===
+         Por defecto: archivo SIN fondo.
+         Si quieres el que tiene fondo, cambia ambos a:
+         url('Logo contadores MD.png')
+      */
+      --logo-header: url('Logo contadores MD sin fondo.png');
+      --logo-watermark: url('Logo contadores MD sin fondo.png');
+    }
+
+    *,*::before,*::after{box-sizing:border-box}
+    html,body{margin:0;padding:0}
+    body{
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Inter, Arial, "Noto Sans", "Helvetica Neue", sans-serif;
+      color:var(--c-surface);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #103346 0%, transparent 60%),
+        radial-gradient(1000px 500px at 110% 10%, #11495e 0%, transparent 60%),
+        linear-gradient(180deg, var(--c-bg), var(--c-bg-2));
+      line-height:1.55;
+    }
+    a{color:#b7f7ea;text-decoration:none}
+    a:hover{text-decoration:underline}
+    .container{max-width:1080px;margin:0 auto;padding:24px}
+    .grid{display:grid;gap:16px}
+    @media (min-width:900px){ .grid-2{grid-template-columns:1fr 1fr} }
+
+    header.hero{padding:48px 0 24px;}
+    .brand{display:flex;align-items:center;gap:12px;margin-bottom:10px;opacity:.95}
+    .logo{
+      width:56px;height:56px;border-radius:12px;overflow:hidden;
+      display:grid;place-items:center;background:transparent;box-shadow:none;
+    }
+    .logo::before{content:none!important;}
+    .logo img{width:100%;height:100%;object-fit:contain;display:block}
+
+    .hero-card{
+      position:relative;background:var(--glass);backdrop-filter: blur(10px);
+      border:var(--glass-border);border-radius:24px;padding:24px;box-shadow:var(--shadow);
+    }
+    /* Marca de agua con el LOGO */
+    .hero-card::after{
+      content:""; position:absolute; right:10px; top:-10px;
+      width: clamp(220px, 30vw, 520px); height: clamp(220px, 30vw, 520px);
+      background-image: var(--logo-watermark);
+      background-repeat:no-repeat; background-size:contain; background-position:right top;
+      opacity:.06; filter:grayscale(1) brightness(1.1) contrast(1.05);
+      pointer-events:none; user-select:none;
+    }
+
+    h1{font-size: clamp(26px, 4.5vw, 40px); margin:8px 0 10px; line-height:1.15}
+    .sub{font-size: clamp(16px, 2.4vw, 18px); color:#e6f6ff; opacity:.95}
+    .cta-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px}
+
+    /* Botón */
+    .btn-glow{
+      --grad: linear-gradient(135deg, #14c6b5, #0ea5b0 40%, #0E5F76 100%);
+      position:relative; display:inline-flex; align-items:center; justify-content:center;
+      min-height:48px; padding:12px 18px; border-radius:999px; background:var(--grad);
+      color:white; font-weight:700; letter-spacing:.2px; border:none; cursor:pointer;
+      box-shadow: 0 0 0 0 rgba(20,198,181,.4), 0 8px 20px rgba(0,0,0,.35);
+      transition: transform .15s ease, box-shadow .3s ease, filter .2s ease;
+    }
+    .btn-glow::after{content:""; position:absolute; inset:-2px; border-radius:inherit;
+      background: radial-gradient(120px 46px at 50% 100%, rgba(24,169,153,.35), transparent 70%);
+      filter: blur(6px); z-index:-1;}
+    .btn-glow:hover{ transform: translateY(-1px); box-shadow:0 0 20px rgba(24,169,153,.45), 0 10px 26px rgba(0,0,0,.45)}
+    .btn-glow:active{ transform: translateY(0); filter:brightness(.98)}
+    .btn-glow:focus-visible{ outline:3px solid #b6fff1; outline-offset:2px }
+    .btn-outline{ background:transparent; border:2px solid rgba(255,255,255,.6); color:#dffcf6; }
+
+    .card{background:var(--glass); backdrop-filter: blur(8px); border:var(--glass-border); border-radius:var(--radius); padding:18px; box-shadow:var(--shadow);}
+    .card h2{margin:2px 0 10px; font-size:22px}
+    .muted{color:#dbf3ff; opacity:.9; font-size:14px}
+
+    .steps{margin:12px 0 4px; padding-left:18px}
+    .steps li{margin:8px 0}
+    .notice{font-size:13px; color:#cfe9ff; background:rgba(255,255,255,.06); padding:10px; border-radius:12px; border:1px dashed rgba(255,255,255,.22)}
+
+    .field{display:grid; gap:6px; margin-bottom:12px}
+    label{font-weight:600}
+    input[type="text"], input[type="number"]{
+      width:100%; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.2);
+      background:rgba(255,255,255,.08); color:#fff; outline:none;
+    }
+    input::placeholder{color:#cde8f3}
+    .hint{font-size:12px;color:#d4eef7;opacity:.9}
+    .inline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .kpi{display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2);}
+    .kpi strong{font-size:18px}
+
+    /* Mini calendario */
+    .calendar{margin-top:10px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.20); border-radius:14px; overflow:hidden;}
+    .cal-head{display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:rgba(14,95,118,.35); border-bottom:1px solid rgba(255,255,255,.2)}
+    .cal-grid{display:grid; grid-template-columns: repeat(7, 1fr); gap:0; padding:6px}
+    .cal-dow,.cal-day{font-size:12px; text-align:center; padding:8px 0; color:#e7f7ff;}
+    .cal-dow{opacity:.8; font-weight:600}
+    .cal-day{border-radius:10px; margin:2px 0}
+    .cal-day[aria-selected="true"]{background:linear-gradient(135deg,#14c6b5,#0E5F76); color:#fff; font-weight:800; outline:2px solid #b6fff1; outline-offset:1px;}
+    .cal-day.is-empty{opacity:.25}
+
+    /* Lista de topes (hero) */
+    .thresholds{margin-top:16px; padding:14px; border-radius:16px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06);}
+    .th-title{font-weight:700; margin:0 0 8px}
+    .th-list{display:grid; gap:10px}
+    @media (min-width:900px){ .th-list{grid-template-columns:1fr 1fr} }
+    .th-item{display:flex; gap:10px; align-items:flex-start; padding:10px; border-radius:12px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.18)}
+    .th-ico{flex:0 0 24px; width:24px; height:24px; border-radius:8px; display:grid; place-items:center; background:linear-gradient(135deg,#14c6b5,#0E5F76); font-size:14px}
+
+    /* Contacto */
+    .contact-cta{display:flex; flex-wrap:wrap; gap:10px}
+    .qr{display:flex; gap:12px; align-items:center; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.2); padding:10px; border-radius:12px}
+    .qr img{width:128px;height:128px;border-radius:8px; background:#fff}
+
+    footer{margin-top:28px; padding:18px; font-size:13px; background:rgba(255,255,255,.06); border-top:1px solid rgba(255,255,255,.2)}
+    .foot-grid{display:grid; gap:8px}
+    @media (min-width:900px){ .foot-grid{grid-template-columns:1fr auto} }
+    :focus-visible{outline:3px solid #b6fff1; outline-offset:2px}
+    @media (prefers-reduced-motion: reduce){ .btn-glow,.btn-glow:hover{transition:none} }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="container">
+      <div class="brand" aria-label="ContadoresMD">
+        <!-- LOGO REAL -->
+        <div class="logo">
+          <img src="Logo contadores MD sin fondo.png" alt="Logo ContadoresMD" />
+        </div>
+        <div>
+          <strong>ContadoresMD</strong>
+          <div class="muted">Declaración de Renta · Personas Naturales</div>
+        </div>
+      </div>
+
+      <div class="hero-card">
+        <h1>¿Te toca declarar renta en <span id="year-tag">2024</span>? Te acompañamos de principio a fin.</h1>
+        <p class="sub">Verifica en el portal oficial de la DIAN en 1 minuto y, si te aplica, nosotros nos encargamos del resto.</p>
+
+        <!-- Topes -->
+        <div class="thresholds" aria-label="Condiciones para declarar 2024">
+          <p class="th-title">Todas las personas naturales que cumplan con <u>una</u> de estas condiciones deben declarar (año gravable 2024):</p>
+          <div class="th-list">
+            <div class="th-item"><div class="th-ico">💳</div><div>Haber sido responsable del IVA al 31 de diciembre de 2024.</div></div>
+            <div class="th-item"><div class="th-ico">🏦</div><div>Patrimonio bruto al 31 de dic. de 2024 igual o superior a <strong>$211.793.000</strong>.</div></div>
+            <div class="th-item"><div class="th-ico">📈</div><div>Ingresos brutos 2024 iguales o superiores a <strong>$65.891.000</strong>.</div></div>
+            <div class="th-item"><div class="th-ico">💳</div><div>Consumos con tarjeta de crédito 2024 iguales o superiores a <strong>$65.891.000</strong>.</div></div>
+            <div class="th-item"><div class="th-ico">🧾</div><div>Compras y consumos 2024 iguales o superiores a <strong>$65.891.000</strong>.</div></div>
+            <div class="th-item"><div class="th-ico">💰</div><div>Consignaciones, depósitos o inversiones 2024 iguales o superiores a <strong>$65.891.000</strong>.</div></div>
+          </div>
+        </div>
+
+        <div class="cta-row" role="group" aria-label="Acciones principales">
+          <a id="cta-dian-hero" class="btn-glow" href="https://webazure.dian.gov.co/consultarenta/" target="_blank" rel="noopener" aria-label="Abrir consulta oficial DIAN en nueva pestaña">🔎 Consultar en la DIAN</a>
+          <a id="cta-wa-hero" class="btn-glow btn-outline" href="https://wa.me/qr/MY2USAKZNBDZA1" target="_blank" rel="noopener" aria-label="Escríbenos por WhatsApp (abre en nueva pestaña)">💬 Escríbenos por WhatsApp</a>
+        </div>
+
+        <p class="muted" style="margin-top:10px">
+          Contacto:
+          <a href="mailto:contadoresmd1503@gmail.com?subject=Asesor%C3%ADa%20Renta%20Personas%20Naturales">contadoresmd1503@gmail.com</a>
+          · <a href="tel:+573228830381">322 883 0381</a> · <a href="tel:+573143517527">314 351 7527</a>
+        </p>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="grid grid-2">
+      <!-- Consulta DIAN -->
+      <article class="card" aria-labelledby="dian-title">
+        <h2 id="dian-title">Consulta si debes declarar (DIAN)</h2>
+        <p class="muted">La verificación se hace directamente en el portal oficial.</p>
+        <div class="inline">
+          <a id="cta-dian-module" class="btn-glow" href="https://webazure.dian.gov.co/consultarenta/" target="_blank" rel="noopener">🔎 Consultar en la DIAN</a>
+          <span class="hint">Se abrirá en una nueva pestaña.</span>
+        </div>
+        <ol class="steps">
+          <li>Acepta los términos y condiciones.</li>
+          <li>Elige tu tipo y número de documento.</li>
+          <li>Responde las preguntas de seguridad.</li>
+          <li>Lee el resultado que te muestra la DIAN.</li>
+        </ol>
+        <p class="notice" role="note">Privacidad: la consulta se realiza directamente en la DIAN. ContadoresMD no recopila ni almacena tus respuestas de seguridad.</p>
+      </article>
+
+      <!-- Vencimiento y requisitos -->
+      <article class="card" aria-labelledby="vx-title">
+        <h2 id="vx-title">Tu vencimiento y requisitos</h2>
+
+        <div class="field">
+          <label for="doc">Cédula o NIT (sin DV)</label>
+          <input id="doc" name="doc" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="Ingresa tu número — usamos solo los 2 últimos dígitos" aria-describedby="doc-hint" autocomplete="off">
+          <div id="doc-hint" class="hint">Solo se usan los 2 últimos dígitos para calcular la fecha.</div>
+        </div>
+
+        <div class="inline kpi" aria-live="polite">
+          <div>🔢</div><div>Últimos 2 dígitos: <strong id="last2">—</strong></div>
+        </div>
+
+        <div class="inline kpi" aria-live="polite">
+          <div>📅</div><div>Vencimiento <span id="vx-year">2024</span>: <strong id="vx-text">Ingresa el documento para ver tu fecha</strong></div>
+        </div>
+
+        <!-- Calendario -->
+        <div class="calendar" aria-label="Calendario de vencimiento">
+          <div class="cal-head">
+            <div id="cal-title">Mes [—]</div>
+            <div class="muted" id="cal-sub">Seleccionado: —</div>
+          </div>
+          <div class="cal-grid" role="grid" aria-labelledby="cal-title" id="cal-grid"></div>
+        </div>
+
+        <div style="margin-top:14px">
+          <h3 style="margin:8px 0">¿Superas algún tope?</h3>
+          <p class="hint">Ingresa valores aproximados del año gravable. Este resultado es orientativo.</p>
+          <div class="grid" style="grid-template-columns:1fr 1fr; gap:10px">
+            <div class="field"><label for="ing">Ingresos brutos anuales (COP)</label><input id="ing" type="number" min="0" step="1000" placeholder="Ej: 65891000"></div>
+            <div class="field"><label for="pat">Patrimonio bruto al 31 de dic (COP)</label><input id="pat" type="number" min="0" step="1000" placeholder="Ej: 211793000"></div>
+            <div class="field"><label for="cmp">Compras y consumos (COP)</label><input id="cmp" type="number" min="0" step="1000" placeholder="Ej: 65891000"></div>
+            <div class="field"><label for="con">Consignaciones / depósitos (COP)</label><input id="con" type="number" min="0" step="1000" placeholder="Ej: 65891000"></div>
+          </div>
+          <div class="inline" style="margin:10px 0 6px"><input id="iva" type="checkbox" /><label for="iva">Soy responsable de IVA</label></div>
+          <div class="kpi" aria-live="polite" id="req-msg"><div>ℹ️</div><div><strong>Ingresa valores</strong> para evaluar si superas topes del año gravable 2024.</div></div>
+        </div>
+      </article>
+    </section>
+
+    <!-- Beneficios & documentos -->
+    <section class="card" aria-labelledby="benef-title" style="margin-top:16px">
+      <h2 id="benef-title">Beneficios y documentos</h2>
+      <div class="grid grid-2">
+        <div>
+          <h3>Beneficios</h3>
+          <ul class="check">
+            <li><span class="th-ico">🎯</span><span>Optimización de deducciones y soporte ante requerimientos.</span></li>
+            <li><span class="th-ico">🧑‍🏫</span><span>Equipo con posgrados y experiencia docente.</span></li>
+            <li><span class="th-ico">🖋️</span><span>Firma electrónica y proceso 100% remoto.</span></li>
+          </ul>
+        </div>
+        <div>
+          <h3>Documentos típicos</h3>
+          <ul class="check">
+            <li><span class="th-ico">📄</span><span>Certificados de ingresos y retenciones, extractos bancarios.</span></li>
+            <li><span class="th-ico">🏥</span><span>Soportes de aportes y pagos de medicina prepagada.</span></li>
+            <li><span class="th-ico">💼</span><span>Préstamos, CDT, inversiones y arrendamientos.</span></li>
+            <li><span class="th-ico">🧾</span><span>Compras, consignaciones y otros soportes relevantes.</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="card" aria-labelledby="faq-title" style="margin-top:16px">
+      <h2 id="faq-title">Preguntas frecuentes</h2>
+      <details>
+        <summary>¿Cuáles son los topes habituales para declarar?</summary>
+        <ul>
+          <li>Patrimonio bruto al 31 de diciembre de 2024: <strong>$211.793.000</strong> o más.</li>
+          <li>Ingresos brutos 2024: <strong>$65.891.000</strong> o más.</li>
+          <li>Consumos con tarjeta de crédito 2024: <strong>$65.891.000</strong> o más.</li>
+          <li>Compras y consumos 2024: <strong>$65.891.000</strong> o más.</li>
+          <li>Consignaciones, depósitos o inversiones 2024: <strong>$65.891.000</strong> o más.</li>
+          <li>O haber sido responsable de IVA al 31 de diciembre de 2024.</li>
+        </ul>
+        <p class="muted">Estos valores corresponden al año gravable 2024 y se publican para fines informativos.</p>
+      </details>
+      <details>
+        <summary>¿Cuál es la sanción mínima por no declarar o declarar mal?</summary>
+        <p>La sanción mínima vigente de referencia es de <strong>$498.000</strong>.</p>
+      </details>
+      <details>
+        <summary>¿Declarar es pagar?</summary>
+        <p>No necesariamente. Estar obligado a declarar renta no implica automáticamente que debas pagar impuesto. <strong>Declarar</strong> es informar a la DIAN tu situación y movimientos financieros del año gravable; el cálculo puede arrojar saldo a pagar, en cero o a favor.</p>
+      </details>
+      <details>
+        <summary>¿En cuánto tiempo responden?</summary>
+        <p>24–48 horas. Atención remota en toda Colombia.</p>
+      </details>
+      <details>
+        <summary>¿Qué medios de pago aceptan?</summary>
+        <p>Transferencia, consignación y pagos digitales. Solicita el instructivo por WhatsApp.</p>
+      </details>
+      <details>
+        <summary>¿Qué pasa con mis datos?</summary>
+        <p>La consulta de obligación se realiza directamente en la DIAN. ContadoresMD no almacena tus respuestas de seguridad.</p>
+      </details>
+    </section>
+
+    <!-- Contacto -->
+    <section class="card" aria-labelledby="ctc-title" style="margin-top:16px">
+      <h2 id="ctc-title">Contacto</h2>
+      <div class="contact-cta">
+        <a class="btn-glow" href="https://wa.me/qr/MY2USAKZNBDZA1" target="_blank" rel="noopener">💬 Escríbenos por WhatsApp</a>
+        <a class="btn-glow btn-outline" href="mailto:contadoresmd1503@gmail.com?subject=Asesor%C3%ADa%20Renta%20Personas%20Naturales" target="_blank" rel="noopener">✉️ Escríbenos al correo</a>
+        <a class="btn-glow btn-outline" href="tel:+573228830381">📞 322 883 0381</a>
+        <a class="btn-glow btn-outline" href="tel:+573143517527">📞 314 351 7527</a>
+      </div>
+      <div class="qr" style="margin-top:12px">
+        <img id="wa-qr" alt="QR de WhatsApp ContadoresMD">
+        <div>
+          <div class="muted">Escanea el QR para chatear por WhatsApp</div>
+          <div class="muted">Cobertura remota en toda Colombia</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container foot-grid">
+      <div>
+        <strong>ContadoresMD</strong> · Declaración de Renta Personas Naturales · Atención 24–48 h · Remoto en toda Colombia
+        <div class="muted" style="margin-top:6px">
+          Aviso legal: La verificación de obligación se realiza directamente en el portal oficial de la DIAN.
+          No solicitamos ni almacenamos respuestas de seguridad.
+        </div>
+      </div>
+      <div class="muted">Email: <a href="mailto:contadoresmd1503@gmail.com?subject=Asesor%C3%ADa%20Renta%20Personas%20Naturales">contadoresmd1503@gmail.com</a></div>
+    </div>
+  </footer>
+
+  <script>
+    /* ===== Configuración (2024 / calendario 2025) ===== */
+    const TAX_YEAR = "2024";
+
+    // Vencimientos oficiales 2025 por últimos dos dígitos
+    const DEADLINES = [
+      { range:[1, 2], date:'2025-08-12' }, { range:[3, 4], date:'2025-08-13' },
+      { range:[5, 6], date:'2025-08-14' }, { range:[7, 8], date:'2025-08-15' },
+      { range:[9,10], date:'2025-08-19' }, { range:[11,12], date:'2025-08-20' },
+      { range:[13,14], date:'2025-08-21' }, { range:[15,16], date:'2025-08-22' },
+      { range:[17,18], date:'2025-08-25' }, { range:[19,20], date:'2025-08-26' },
+      { range:[21,22], date:'2025-08-27' }, { range:[23,24], date:'2025-08-28' },
+      { range:[25,26], date:'2025-08-29' }, { range:[27,28], date:'2025-09-01' },
+      { range:[29,30], date:'2025-09-02' }, { range:[31,32], date:'2025-09-03' },
+      { range:[33,34], date:'2025-09-04' }, { range:[35,36], date:'2025-09-05' },
+      { range:[37,38], date:'2025-09-08' }, { range:[39,40], date:'2025-09-09' },
+      { range:[41,42], date:'2025-09-10' }, { range:[43,44], date:'2025-09-11' },
+      { range:[45,46], date:'2025-09-12' }, { range:[47,48], date:'2025-09-15' },
+      { range:[49,50], date:'2025-09-16' }, { range:[51,52], date:'2025-09-17' },
+      { range:[53,54], date:'2025-09-18' }, { range:[55,56], date:'2025-09-19' },
+      { range:[57,58], date:'2025-09-22' }, { range:[59,60], date:'2025-09-23' },
+      { range:[61,62], date:'2025-09-24' }, { range:[63,64], date:'2025-09-25' },
+      { range:[65,66], date:'2025-09-26' }, { range:[67,68], date:'2025-10-01' },
+      { range:[69,70], date:'2025-10-02' }, { range:[71,72], date:'2025-10-03' },
+      { range:[73,74], date:'2025-10-06' }, { range:[75,76], date:'2025-10-07' },
+      { range:[77,78], date:'2025-10-08' }, { range:[79,80], date:'2025-10-09' },
+      { range:[81,82], date:'2025-10-10' }, { range:[83,84], date:'2025-10-14' },
+      { range:[85,86], date:'2025-10-15' }, { range:[87,88], date:'2025-10-16' },
+      { range:[89,90], date:'2025-10-17' }, { range:[91,92], date:'2025-10-20' },
+      { range:[93,94], date:'2025-10-21' }, { range:[95,96], date:'2025-10-22' },
+      { range:[97,98], date:'2025-10-23' }, { range:[99, 0], date:'2025-10-24' }
+    ];
+
+    // Topes 2024 (informativos)
+    const THRESHOLDS = {
+      ingresosBrutosAnuales: 65891000,   // 1.400 UVT
+      patrimonioBruto31Dic: 211793000,   // 4.500 UVT
+      comprasConsumos: 65891000,         // 1.400 UVT
+      consignaciones: 65891000,          // 1.400 UVT
+      responsableIVA: true
+    };
+
+    /* ===== Utils ===== */
+    const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+    const digitsOnly=s=>(s||"").replace(/\D+/g,"");
+    const lastTwoDigits=s=>{const d=digitsOnly(s); if(!d) return null; const x=d.slice(-2); return x?Number(x):null;}
+    const findDeadlineFor=l2=>{for(const r of DEADLINES){ if(l2>=r.range[0] && l2<=r.range[1]) return r.date } return null }
+    const formatDateLong=iso=>!iso?"—":new Date(iso+"T12:00:00").toLocaleDateString('es-CO',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+    /* ===== Calendario ===== */
+    const calGrid=$("#cal-grid"), calTitle=$("#cal-title"), calSub=$("#cal-sub");
+    function drawMonth(refDate, selectedDate){
+      const dows=["L","M","M","J","V","S","D"];
+      calGrid.innerHTML="";
+      dows.forEach(d=>{const el=document.createElement('div'); el.className="cal-dow"; el.textContent=d; calGrid.appendChild(el);});
+      const y=refDate.getFullYear(), m=refDate.getMonth(), first=new Date(y,m,1);
+      let start=first.getDay(); start=(start===0)?6:start-1;
+      const daysInMonth=new Date(y,m+1,0).getDate();
+      for(let i=0;i<start;i++){const cell=document.createElement('div'); cell.className="cal-day is-empty"; cell.setAttribute('aria-hidden','true'); calGrid.appendChild(cell);}
+      for(let d=1; d<=daysInMonth; d++){
+        const cell=document.createElement('div');
+        cell.className="cal-day"; cell.setAttribute('role','gridcell'); cell.setAttribute('tabindex','-1'); cell.textContent=d;
+        if(selectedDate && d===selectedDate.getDate() && m===selectedDate.getMonth() && y===selectedDate.getFullYear()){
+          cell.setAttribute('aria-selected','true'); cell.setAttribute('tabindex','0');
+        }
+        calGrid.appendChild(cell);
+      }
+    }
+    function renderCalendarForDate(isoStr){
+      const now=new Date();
+      if(!isoStr){
+        drawMonth(now,null);
+        calTitle.textContent=now.toLocaleDateString('es-CO',{month:'long',year:'numeric'});
+        calSub.textContent="Seleccionado: —";
+        return;
+      }
+      const t=new Date(isoStr+"T12:00:00");
+      drawMonth(t,t);
+      calTitle.textContent=t.toLocaleDateString('es-CO',{month:'long',year:'numeric'});
+      calSub.textContent=`Seleccionado: ${t.getDate()} / ${t.getMonth()+1} / ${t.getFullYear()}`;
+    }
+
+    /* ===== Requisitos en vivo ===== */
+    const ing=$("#ing"), pat=$("#pat"), cmp=$("#cmp"), con=$("#con"), iva=$("#iva"), reqMsg=$("#req-msg");
+    function evaluate(){
+      const any=(Number(ing.value||0)>=THRESHOLDS.ingresosBrutosAnuales)
+        || (Number(pat.value||0)>=THRESHOLDS.patrimonioBruto31Dic)
+        || (Number(cmp.value||0)>=THRESHOLDS.comprasConsumos)
+        || (Number(con.value||0)>=THRESHOLDS.consignaciones)
+        || (iva.checked && THRESHOLDS.responsableIVA===true);
+      reqMsg.innerHTML = any
+        ? '<div>✅</div><div><strong>Posiblemente debes declarar.</strong> Revisa tu fecha y <a href="https://wa.me/qr/MY2USAKZNBDZA1" target="_blank" rel="noopener">contáctanos</a> para confirmación.</div>'
+        : '<div>ℹ️</div><div><strong>Aún no indicaste valores que superen topes.</strong> Si tienes dudas, <a href="https://wa.me/qr/MY2USAKZNBDZA1" target="_blank" rel="noopener">escríbenos</a>.</div>';
+    }
+    [ing,pat,cmp,con,iva].forEach(el=>el.addEventListener('input',evaluate));
+
+    /* ===== Documento → últimos 2 dígitos → fecha ===== */
+    const doc=$("#doc"), last2El=$("#last2"), vxText=$("#vx-text"), vxYear=$("#vx-year"), yearTag=$("#year-tag");
+    function handleDocInput(){
+      const l2=lastTwoDigits(doc.value);
+      last2El.textContent=(l2==null)?"—":String(l2).padStart(2,'0');
+      const date=(l2!=null)?findDeadlineFor(l2):null;
+      if(date){
+        vxText.textContent=formatDateLong(date);
+        renderCalendarForDate(date);
+      } else {
+        vxText.textContent = "Ingresa el documento para ver tu fecha";
+        renderCalendarForDate(null);
+      }
+    }
+
+    /* ===== UTM ===== */
+    function appendUtm(url, medium, position){
+      const y=encodeURIComponent(TAX_YEAR||"NA");
+      const u=new URL(url);
+      u.searchParams.set('utm_source','landing');
+      u.searchParams.set('utm_medium',medium);
+      u.searchParams.set('utm_campaign',`renta-personas-${y}`);
+      u.searchParams.set('utm_content',position);
+      return u.toString();
+    }
+
+    /* ===== Init ===== */
+    function init(){
+      vxYear.textContent=TAX_YEAR;
+      yearTag.textContent=TAX_YEAR;
+      renderCalendarForDate(null);
+      doc.addEventListener('input',handleDocInput);
+
+      // QR visible (puedes reemplazar por tu PNG propio)
+      const WA_LINK = "https://wa.me/qr/MY2USAKZNBDZA1";
+      const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data="+encodeURIComponent(WA_LINK);
+      document.querySelector("#wa-qr").src = qrUrl;
+
+      // UTM a WhatsApp (hero + contacto)
+      [["#cta-wa-hero","hero"],[".contact-cta a[href^='https://wa.me/qr']","contacto"]].forEach(([sel,pos])=>{
+        document.querySelectorAll(sel).forEach(a=>{
+          a.href=appendUtm(a.href,'cta',pos);
+        });
+      });
+    }
+    init();
+  </script>
+</body>
+</html>
