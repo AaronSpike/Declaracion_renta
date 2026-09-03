@@ -1,5 +1,9 @@
 data/
 *.parquet
 *.csv
+
+# Los submissions si se versionan: son el entregable del reto
+!submissions/
+!submissions/*.csv
 __pycache__/
 *.pyc
