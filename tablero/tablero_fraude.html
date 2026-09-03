@@ -240,27 +240,27 @@
   <section>
     <p class="eyebrow">Lectura de decisión</p>
     <h2>Qué rinde la capacidad de 100 investigaciones</h2>
-    <p class="lead">Las cifras corresponden al modelo construido <strong>únicamente con fuentes no transaccionales</strong> (demográficas, dispositivos, actualización de datos), validado fuera de muestra con validación cruzada estratificada de 5 particiones. Es la línea base contra la cual se mide el aporte real de las transacciones.</p>
+    <p class="lead">Las cifras corresponden al modelo construido <strong>únicamente con fuentes no transaccionales</strong> (demográficas, dispositivos, actualización de datos). Es la línea base contra la cual se medirá el aporte de las transacciones. La cifra oficial se reporta sobre un <strong>conjunto reservado del 20 % que no participó ni en el entrenamiento ni en la selección de hiperparámetros</strong>: es la única estimación no contaminada por la propia búsqueda del modelo.</p>
     <div class="cifras">
       <div class="cifra">
-        <div class="k">Precision@100</div>
-        <div class="v">12,7 <span>%</span></div>
-        <div class="n">≈ 13 fraudes reales por cada 100 cuentas investigadas</div>
+        <div class="k">Precision@100 · reservado</div>
+        <div class="v">20,0 <span>%</span></div>
+        <div class="n">12 aciertos en 60 casos. IC 95 % de 11,8 % a 31,8 %</div>
       </div>
       <div class="cifra">
         <div class="k">Lift sobre el azar</div>
-        <div class="v">2,8 <span>×</span></div>
+        <div class="v">4,4 <span>×</span></div>
         <div class="n">Priorizar al azar rinde 4-5 aciertos por cada 100</div>
       </div>
       <div class="cifra">
-        <div class="k">ROC-AUC</div>
-        <div class="v">0,623</div>
-        <div class="n">Fuera de muestra, promedio de 5 particiones</div>
+        <div class="k">ROC-AUC · reservado</div>
+        <div class="v">0,620</div>
+        <div class="n">En desarrollo daba 0,623: el optimismo es pequeño en AUC</div>
       </div>
       <div class="cifra">
         <div class="k">Captura en el decil 1</div>
-        <div class="v">25,0 <span>%</span></div>
-        <div class="n">Un cuarto de todo el fraude está en el 10 % peor calificado</div>
+        <div class="v">26,8 <span>%</span></div>
+        <div class="n">Un cuarto del fraude está en el 10 % peor calificado</div>
       </div>
     </div>
   </section>
@@ -269,7 +269,7 @@
   <section>
     <p class="eyebrow">Evidencia</p>
     <h2>Cómo se comporta el ranking</h2>
-    <p class="lead">La métrica de premiación es Precision@100, así que lo único que importa es el orden en la cabeza del ranking. La curva de la izquierda revela la limitación central de la línea base: <strong>la precisión es plana</strong>. El modelo separa la población, pero no concentra el fraude en el extremo superior, que es justo donde vive la capacidad operativa.</p>
+    <p class="lead">La métrica de premiación es Precision@100, así que lo único que importa es el orden en la cabeza del ranking. La curva de la izquierda cae de forma sostenida — de 25,8 % en las 50 primeras cuentas a 12,1 % en las 5.000 — lo que confirma que el modelo <strong>concentra el fraude arriba</strong>, que es donde vive la capacidad operativa. La primera versión del modelo producía una curva plana en 12,7 %: separaba la población pero no ordenaba su cabeza. La diferencia no vino de más datos sino de dejar de optimizar la métrica equivocada.</p>
     <div class="charts">
       <figure>
         <figcaption>
@@ -350,6 +350,50 @@
     <p class="lead" style="margin-top:14px">Las razones de la derecha comparan fraude contra cuentas legítimas y sí muestran separación — el uso de emulador es casi cuatro veces más frecuente en cuentas comprometidas. Lo que la prueba descarta es la separación <em>entre</em> las cuatro tipologías: todas comparten la misma firma en estas fuentes.</p>
   </section>
 
+  <!-- ================= AUTOREVISIÓN ================= -->
+  <section>
+    <p class="eyebrow">Revisión adversarial del propio trabajo</p>
+    <h2>Tres defectos que encontramos en nuestro propio pipeline</h2>
+    <p class="lead">Antes de cerrar, el equipo sometió su propio código a una revisión adversarial con el mandato explícito de refutarlo. Encontró tres defectos, dos de ellos en el código ya escrito y uno en el método de medición. Se documentan porque un modelo que nadie intentó romper no está validado, solo publicado — y porque el primero de ellos contradecía lo que este mismo informe denunciaba.</p>
+    <div class="hallazgos">
+      <article class="hallazgo" data-sev="alta">
+        <div class="h-top">
+          <span class="h-id">C-01</span>
+          <span class="h-t">Denunciábamos la fuga post-corte y la estábamos usando como variable</span>
+          <span class="chip alta">Severidad alta</span>
+          <span class="chip">Corregido</span>
+        </div>
+        <p>El pipeline calculaba los días transcurridos desde el último acceso como <code>corte − último_acceso</code>. En las cuentas cuyo último acceso es posterior al corte, esa resta da <strong>números negativos</strong>: el modelo recibía, en forma directamente utilizable, la información posterior a la fecha de corte que este mismo informe señalaba como riesgo en el hallazgo H-02.</p>
+        <p class="ev">Evidencia: 25.587 cuentas (14,2 %) con valores de −1 a −39 días.</p>
+        <p class="rec"><b>Tratamiento:</b> la recencia se censura a dato faltante cuando el acceso es posterior al corte, y se eliminó el indicador binario derivado. Costo predictivo nulo — la variable tenía AUC individual de 0,492 y el indicador 0,504, es decir, ninguno aportaba señal: solo aportaba fuga.</p>
+      </article>
+
+      <article class="hallazgo" data-sev="media">
+        <div class="h-top">
+          <span class="h-id">C-02</span>
+          <span class="h-t">Un valor centinela tratado como si fuera una cantidad</span>
+          <span class="chip media">Severidad media</span>
+          <span class="chip">Corregido</span>
+        </div>
+        <p>El campo de días desde el último cambio de dispositivo vale 999 en el 90 % de los registros. No son 999 días: es el código de «sin cambio registrado». Usarlo como número introduce una distancia falsa de unos 900 días frente a los cambios reales y desplaza los puntos de corte que el modelo aprende.</p>
+        <p class="ev">Evidencia: valor 999 en 166.621 de 185.004 registros (90,06 %); el siguiente valor más frecuente aparece 244 veces.</p>
+        <p class="rec"><b>Tratamiento:</b> el centinela pasa a dato faltante y se añade un indicador explícito de ausencia de cambio, separando «no sabemos» de «hace mucho».</p>
+      </article>
+
+      <article class="hallazgo" data-sev="alta">
+        <div class="h-top">
+          <span class="h-id">C-03</span>
+          <span class="h-t">La cifra que reportábamos estaba inflada por nuestra propia búsqueda</span>
+          <span class="chip alta">Severidad alta</span>
+          <span class="chip">Corregido</span>
+        </div>
+        <p>Los hiperparámetros se eligieron comparando configuraciones sobre las mismas cinco particiones con las que después se reportaba el resultado. El máximo de varias evaluaciones sobre los mismos datos está sesgado al alza por construcción: no es desempeño, es el premio a haber buscado.</p>
+        <p class="ev">Evidencia: al reservar un 20 % que no participó ni en la selección ni en el entrenamiento, Precision@100 baja de 23,8 % a 20,0 % — <strong>3,8 puntos de optimismo</strong>. En ROC-AUC el efecto es menor: de 0,623 a 0,620.</p>
+        <p class="rec"><b>Tratamiento:</b> la cifra oficial del tablero es la del conjunto reservado, no la de desarrollo. Se reportan ambas para que la diferencia quede visible y auditable.</p>
+      </article>
+    </div>
+  </section>
+
   <!-- ================= HALLAZGOS ================= -->
   <section>
     <p class="eyebrow">Hallazgos de auditoría</p>
@@ -377,7 +421,7 @@
           <span class="chip">No corregible con los datos entregados</span>
         </div>
         <p>Las tablas de clientes, endeudamiento, dispositivos y actualización de datos son fotografías del estado presente, sin fecha por evento. Sus campos de ventana móvil reflejan el momento de la extracción, posterior al corte, y no es reconstruible su estado al 2026-04-29. Se usan porque el reto las entrega como fuentes válidas, pero introducen un riesgo de fuga que el equipo no puede eliminar.</p>
-        <p class="ev">Evidencia: 25.708 registros de último acceso (13,9 % del total) tienen fecha posterior al corte, con máximo en 2026-06-07 — 39 días después.</p>
+        <p class="ev">Evidencia: 25.587 cuentas (14,2 %) tienen último acceso posterior al corte, con máximo en 2026-06-07 — 39 días después. Ver también C-01: este hallazgo se estaba materializando dentro de nuestro propio pipeline.</p>
         <p class="rec"><b>Recomendación:</b> exigir al área de datos versiones historificadas con fecha por evento antes de cualquier despliegue productivo. Responsable sugerido: Gobierno de Datos, con validación de Auditoría Interna.</p>
       </article>
 
@@ -439,7 +483,8 @@
       <p>Toda variable transaccional se construye filtrando <code>timestamp &lt;= 2026-04-29</code>, la fecha de corte declarada para las cuentas a calificar. El filtro se aplica una sola vez, sobre una constante, y no por cuenta: cualquier revisor puede reejecutar la consulta y obtener el mismo conteo de transacciones admitidas.</p>
       <p>La misma fecha rige para entrenamiento y evaluación. Esta decisión es la que neutraliza el artefacto descrito en H-01 y es, a la vez, el control que hace la regla anti-fuga auditable: una sola condición, verificable en una línea, en lugar de una lógica condicional por cuenta imposible de revisar caso a caso.</p>
       <h3 style="margin-top:14px">Medición de la métrica de premiación</h3>
-      <p>Precision@100 sobre 100 casos tiene una varianza alta por construcción. Para no reportar una cifra puntual engañosa, se estima muestreando 400 subconjuntos fuera de muestra del mismo tamaño que el conjunto de evaluación (44.962 cuentas) y midiendo el top-100 de cada uno. La línea base rinde <strong>12,2 % ± 2,6 puntos porcentuales</strong>: la banda, no el punto, es la cifra defendible.</p>
+      <p>Precision@100 se mide sobre 100 casos, así que tiene varianza alta por construcción. La cifra oficial del conjunto reservado — 12 aciertos en 60 casos, el equivalente proporcional al top-100 sobre las 44.962 cuentas a calificar — tiene un intervalo de confianza del 95 % que va de <strong>11,8 % a 31,8 %</strong>. La banda, no el punto, es la cifra defendible.</p>
+      <p>La consecuencia operativa hay que decirla: con 100 alertas diarias, un solo día de operación no permite concluir nada sobre el desempeño del modelo. Ninguna decisión de reentrenamiento o de reversión debería tomarse con menos de tres semanas de alertas ya investigadas. Por la misma razón, diferencias de milésimas de ROC-AUC entre equipos en la tabla de posiciones son ruido muestral, no superioridad.</p>
     </div>
   </section>
 
@@ -479,9 +524,9 @@
 
   // ---------- 1. Precisión @ K ----------
   var PK = [
-    {k:50,p:12.67},{k:100,p:12.67},{k:200,p:12.98},{k:300,p:13.54},{k:500,p:13.38},
-    {k:750,p:13.63},{k:1000,p:13.52},{k:1500,p:13.45},{k:2000,p:13.10},
-    {k:3000,p:12.46},{k:5000,p:11.25}
+    {k:50,p:25.83},{k:100,p:23.33},{k:200,p:21.00},{k:300,p:17.06},{k:500,p:15.65},
+    {k:750,p:14.59},{k:1000,p:14.48},{k:1500,p:14.62},{k:2000,p:14.32},
+    {k:3000,p:13.53},{k:5000,p:12.07}
   ];
   var AZAR = 4.56;
 
@@ -490,11 +535,11 @@
     var W = 640, H = 300, L = 50, R = 18, T = 18, B = 42;
     var pw = W - L - R, ph = H - T - B;
     var x0 = Math.log10(50), x1 = Math.log10(5000);
-    var yMax = 16;
+    var yMax = 28;
     var X = function (k) { return L + (Math.log10(k) - x0) / (x1 - x0) * pw; };
     var Y = function (p) { return T + ph - (p / yMax) * ph; };
 
-    [0, 4, 8, 12, 16].forEach(function (v) {
+    [0, 7, 14, 21, 28].forEach(function (v) {
       svg.appendChild(el('line', {x1: L, x2: L + pw, y1: Y(v), y2: Y(v),
         stroke: v === 0 ? css('--rule-strong') : css('--grid'), 'stroke-width': 1}));
       var t = el('text', {x: L - 8, y: Y(v) + 3.5, 'text-anchor': 'end', class: 'axis-t'});
@@ -542,16 +587,16 @@
       svg.appendChild(hit);
     });
 
-    var d100 = el('text', {x: X(100), y: Y(12.67) - 12, 'text-anchor': 'middle',
+    var d100 = el('text', {x: X(100), y: Y(23.33) - 12, 'text-anchor': 'middle',
       class: 'dl', fill: css('--s1')});
-    d100.textContent = '12,7 %';
+    d100.textContent = '23,3 %';
     svg.appendChild(d100);
   })();
 
   // ---------- 2. Ganancias acumuladas ----------
-  var GAN = [{d:0,g:0},{d:10,g:25.0},{d:20,g:41.3},{d:30,g:49.1},{d:40,g:56.2},
-             {d:50,g:64.4},{d:60,g:71.5},{d:70,g:78.6},{d:80,g:85.7},
-             {d:90,g:92.8},{d:100,g:100}];
+  var GAN = [{d:0,g:0},{d:10,g:26.8},{d:20,g:41.4},{d:30,g:49.0},{d:40,g:56.5},
+             {d:50,g:63.6},{d:60,g:71.1},{d:70,g:78.4},{d:80,g:85.7},
+             {d:90,g:92.6},{d:100,g:100}];
 
   (function () {
     var svg = document.getElementById('c-gan');
@@ -602,8 +647,8 @@
       svg.appendChild(hit);
     });
 
-    var dl = el('text', {x: X(10) + 8, y: Y(25) - 8, class: 'dl', fill: css('--s1')});
-    dl.textContent = '25,0 % en el decil 1';
+    var dl = el('text', {x: X(10) + 8, y: Y(26.8) - 8, class: 'dl', fill: css('--s1')});
+    dl.textContent = '26,8 % en el decil 1';
     svg.appendChild(dl);
   })();
 

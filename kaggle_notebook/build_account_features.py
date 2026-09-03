@@ -41,11 +41,24 @@ DECISIONES DE DISENO (anti-leakage) - documentadas para el jurado
    customers, credit_indebtedness, device_mobile_activity y data_update_history
    son SNAPSHOTS sin fecha por evento (no son logs). Sus campos de ventana movil
    (num_sesiones_30d, num_cambios_dispositivo_12m, ultimo_login, etc.) reflejan
-   el estado al momento de la extraccion, que puede ser posterior al corte
-   (ej. se observan ultimo_login hasta 2026-05-17). No es reconstruible el
+   el estado al momento de la extraccion, que puede ser posterior al corte:
+   25.587 cuentas (14,2%) tienen ultimo_login posterior al 2026-04-29, con
+   maximo en 2026-06-07, es decir 39 dias despues. No es reconstruible el
    estado exacto al 2026-04-29 con los datos entregados. Se usan igual porque
    el reto las entrega como fuentes validas, pero se deja constancia del riesgo
    de fuga post-corte en estas fuentes.
+
+5) CENSURA ANTI-FUGA DE LA RECENCIA DE ACCESO:
+   calcular dias_desde_ultimo_login = corte - ultimo_login produce valores
+   NEGATIVOS (de -1 a -39) en esas 25.587 cuentas, entregando al modelo
+   informacion posterior al corte en forma directamente utilizable. Aqui se
+   censura a NULO cuando el acceso es posterior al corte. Costo predictivo
+   nulo (AUC univariado de la variable: 0,4921).
+
+6) VALOR CENTINELA: dias_desde_ultimo_cambio vale 999 en el 90,06% de los
+   registros. No son 999 dias: significa "sin cambio de dispositivo
+   registrado". Se convierte a NULO y se agrega un indicador explicito, para
+   no introducir una distancia falsa de ~900 dias frente a los cambios reales.
 
 4) device_mobile_activity tiene MAS filas que cuentas (185.004 vs 180.000):
    4.019 cuentas tienen 2-3 dispositivos. Se AGREGA por cuenta antes de unir
@@ -228,7 +241,9 @@ SELECT
     MAX(is_rooted_or_jailbreak) AS is_rooted_or_jailbreak,
     MAX(is_emulator) AS is_emulator,
     MAX(num_cambios_dispositivo_12m) AS num_cambios_dispositivo_12m,
-    MIN(dias_desde_ultimo_cambio) AS dias_desde_ultimo_cambio,
+    -- 999 es centinela de "sin cambio registrado", no una cantidad de dias
+    MIN(NULLIF(dias_desde_ultimo_cambio, 999)) AS dias_desde_ultimo_cambio,
+    MIN(CASE WHEN dias_desde_ultimo_cambio = 999 THEN 1 ELSE 0 END) AS sin_cambio_dispositivo,
     SUM(num_sesiones_30d) AS num_sesiones_30d,
     MAX(num_ciudades_acceso_30d) AS num_ciudades_acceso_30d,
     MAX(pct_accesos_fuera_ciudad) AS pct_accesos_fuera_ciudad,
@@ -256,8 +271,11 @@ SELECT
     ci.* EXCLUDE (id_cuenta),
     d.* EXCLUDE (id_cuenta),
     h.* EXCLUDE (id_cuenta),
-    DATE_DIFF('day', d.ultimo_login, TIMESTAMP '{CUTOFF}') AS dias_desde_ultimo_login,
-    CASE WHEN d.ultimo_login > TIMESTAMP '{CUTOFF} 23:59:59' THEN 1 ELSE 0 END AS flag_login_post_corte
+    -- Censura anti-fuga: un acceso posterior al corte no es observable en la
+    -- fecha de decision, asi que la recencia queda como NULO en vez de negativa.
+    CASE WHEN d.ultimo_login <= TIMESTAMP '{CUTOFF} 23:59:59'
+         THEN DATE_DIFF('day', d.ultimo_login, TIMESTAMP '{CUTOFF}')
+         ELSE NULL END AS dias_desde_ultimo_login
 FROM accounts_master am
 LEFT JOIN agg_tx a USING (id_cuenta)
 LEFT JOIN read_parquet('{FILES["customers"]}') c USING (id_cuenta)
