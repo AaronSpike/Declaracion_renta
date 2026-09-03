@@ -1,36 +1,56 @@
 """
 Feature engineering a nivel de cuenta - Hackathon Asobancaria 2026 (Banco AuditPlus)
+VERSION 2 (corregida tras EDA)
 
 COMO USAR:
 1. Crea/abre un Kaggle Notebook adjuntado a la competencia
    "hackaton-asobancaria-auditores-2026" (Add Data -> la competencia).
-2. Pega TODO este archivo en una celda y ejecutalo (Run All).
+2. Pega TODO este archivo en una celda y ejecutalo.
    No necesitas subir ni descargar transactions.parquet: ya esta montado
    en /kaggle/input dentro del propio notebook.
-3. Al terminar, queda un archivo /kaggle/working/account_features.parquet
-   (deberia pesar pocos MB, NO cientos de MB). Descargalo desde el panel
-   "Output" del notebook y subelo de vuelta en el chat.
+3. Al terminar queda /kaggle/working/account_features.parquet (pocos MB).
+   Descargalo del panel "Output" del notebook y subelo de vuelta al chat.
 
-DECISIONES DE DISENO (anti-leakage), documentadas para el jurado:
-- Cada cuenta tiene una "fecha de corte" (cutoff): solo se usan transacciones
-  con timestamp <= cutoff.
-  * Cuentas de evaluacion (accounts_to_score): cutoff = fecha_corte (dada).
-  * Cuentas fraudulentas de train (is_fraud=1): cutoff = fecha_confirmacion_fraude.
-    Se usa la fecha de CONFIRMACION del caso (no despues) para no filtrar el
-    comportamiento posterior a la contencion/bloqueo del banco.
-  * Cuentas legitimas de train (is_fraud=0, sin fecha de confirmacion):
-    no tienen un evento natural de corte. Se les asigna un cutoff global
-    GLOBAL_SNAPSHOT_DATE = MAX(timestamp) observado en transactions.parquet,
-    simulando "hoy" como fecha de observacion. Esta es una decision de
-    negocio explicita: se documenta en el pitch como supuesto auditado.
-- Las tablas customers, credit_indebtedness, device_mobile_activity y
-  data_update_history son snapshots sin fecha por evento (no son logs
-  transaccionales), por lo que NO se pueden filtrar por cutoff con precision.
-  Se asume que reflejan el estado mas reciente disponible en la extraccion.
-  RIESGO DE AUDITORIA: para cuentas de fraude confirmado esto puede introducir
-  fuga leve post-evento (ej. cambio de dispositivo tras el bloqueo). Se deja
-  registrado como hallazgo de gobernanza de datos, no se intenta corregir
-  con supuestos adicionales no soportados por los datos.
+-----------------------------------------------------------------------------
+DECISIONES DE DISENO (anti-leakage) - documentadas para el jurado
+-----------------------------------------------------------------------------
+1) FECHA DE CORTE UNICA Y COMUN = MAX(accounts_to_score.fecha_corte) = 2026-04-29.
+   Se aplica la MISMA fecha de corte a las cuentas de entrenamiento y a las de
+   evaluacion. Solo se usan transacciones con timestamp <= corte.
+
+   Por que NO se usa fecha_confirmacion_fraude como corte por cuenta:
+   el rango de confirmaciones va de 2025-10-11 a 2026-06-07, mientras que
+   TODAS las cuentas a calificar tienen corte 2026-04-29. Si a cada cuenta
+   fraudulenta se le recortara la ventana en su fecha de confirmacion y a las
+   legitimas no, el LARGO DE LA VENTANA DE OBSERVACION quedaria correlacionado
+   casi perfectamente con la etiqueta. El modelo aprenderia "ventana corta =
+   fraude", que es un artefacto de construccion del dataset y no una senal de
+   riesgo: colapsaria al aplicarse sobre el set de evaluacion, donde todas las
+   ventanas miden lo mismo. El corte comun elimina ese artefacto y hace que las
+   features de train y de scoring sean directamente comparables.
+
+2) LIMITACION CONOCIDA (hallazgo de auditoria, se reporta, no se "parcha"):
+   para las cuentas cuyo fraude fue confirmado ANTES del 2026-04-29, la ventana
+   de observacion incluye comportamiento posterior al evento (rastro del fraude
+   ya materializado y de la contencion del banco). Esto cumple la regla del reto
+   (informacion <= fecha_corte) pero infla el desempeno frente a un uso de
+   deteccion temprana real. Recomendacion para produccion: reentrenar con
+   ventana de observacion y ventana de desempeno separadas.
+
+3) LIMITACION CONOCIDA (hallazgo de auditoria):
+   customers, credit_indebtedness, device_mobile_activity y data_update_history
+   son SNAPSHOTS sin fecha por evento (no son logs). Sus campos de ventana movil
+   (num_sesiones_30d, num_cambios_dispositivo_12m, ultimo_login, etc.) reflejan
+   el estado al momento de la extraccion, que puede ser posterior al corte
+   (ej. se observan ultimo_login hasta 2026-05-17). No es reconstruible el
+   estado exacto al 2026-04-29 con los datos entregados. Se usan igual porque
+   el reto las entrega como fuentes validas, pero se deja constancia del riesgo
+   de fuga post-corte en estas fuentes.
+
+4) device_mobile_activity tiene MAS filas que cuentas (185.004 vs 180.000):
+   4.019 cuentas tienen 2-3 dispositivos. Se AGREGA por cuenta antes de unir
+   (un LEFT JOIN directo duplicaria cuentas y corromperia el dataset).
+   El numero de dispositivos se conserva como feature (num_dispositivos).
 """
 
 import glob
@@ -45,7 +65,7 @@ except ImportError:
     import duckdb
 
 # ---------------------------------------------------------------------------
-# 1. Localizar archivos de entrada (autodeteccion por nombre bajo /kaggle/input)
+# 1. Localizar archivos de entrada
 # ---------------------------------------------------------------------------
 
 def find_file(name):
@@ -54,16 +74,10 @@ def find_file(name):
         raise FileNotFoundError(f"No se encontro {name} bajo /kaggle/input. Verifica el Add Data.")
     return matches[0]
 
-FILES = {
-    "transactions": find_file("transactions.parquet"),
-    "customers": find_file("customers.parquet"),
-    "credit_indebtedness": find_file("credit_indebtedness.parquet"),
-    "device_mobile_activity": find_file("device_mobile_activity.parquet"),
-    "data_update_history": find_file("data_update_history.parquet"),
-    "merchants": find_file("merchants.parquet"),
-    "fraud_labels_train": find_file("fraud_labels_train.parquet"),
-    "accounts_to_score": find_file("accounts_to_score.parquet"),
-}
+FILES = {k: find_file(f"{k}.parquet") for k in [
+    "transactions", "customers", "credit_indebtedness", "device_mobile_activity",
+    "data_update_history", "merchants", "fraud_labels_train", "accounts_to_score",
+]}
 for k, v in FILES.items():
     print(f"{k}: {v}")
 
@@ -73,93 +87,59 @@ con = duckdb.connect()
 con.execute("PRAGMA threads=4")
 
 # ---------------------------------------------------------------------------
-# 2. Tabla maestra de cuentas + cutoff (anti-leakage)
+# 2. Fecha de corte comun
+# ---------------------------------------------------------------------------
+
+CUTOFF = con.execute(f"""
+    SELECT MAX(TRY_CAST(fecha_corte AS DATE)) FROM read_parquet('{FILES["accounts_to_score"]}')
+""").fetchone()[0]
+print(f"\nFECHA DE CORTE COMUN: {CUTOFF}")
+
+# ---------------------------------------------------------------------------
+# 3. Tabla maestra de cuentas (train + score) con la misma fecha de corte
 # ---------------------------------------------------------------------------
 
 con.execute(f"""
 CREATE OR REPLACE TABLE accounts_master AS
-WITH global_snapshot AS (
-    SELECT MAX(TRY_CAST(timestamp AS TIMESTAMP)) AS snapshot_date
-    FROM read_parquet('{FILES["transactions"]}')
-),
-train AS (
-    SELECT
-        id_cuenta,
-        is_fraud,
-        tipo_fraude,
-        TRY_CAST(fecha_confirmacion_fraude AS TIMESTAMP) AS fecha_confirmacion_fraude,
-        'train' AS split
-    FROM read_parquet('{FILES["fraud_labels_train"]}')
-),
-score AS (
-    SELECT
-        id_cuenta,
-        CAST(NULL AS INTEGER) AS is_fraud,
-        CAST(NULL AS VARCHAR) AS tipo_fraude,
-        TRY_CAST(fecha_corte AS TIMESTAMP) AS fecha_corte,
-        'score' AS split
-    FROM read_parquet('{FILES["accounts_to_score"]}')
-)
-SELECT
-    t.id_cuenta,
-    t.split,
-    t.is_fraud,
-    t.tipo_fraude,
-    CASE
-        WHEN t.is_fraud = 1 AND t.fecha_confirmacion_fraude IS NOT NULL
-            THEN t.fecha_confirmacion_fraude
-        ELSE (SELECT snapshot_date FROM global_snapshot)
-    END AS cutoff_date
-FROM train t
+SELECT id_cuenta, 'train' AS split, is_fraud, tipo_fraude,
+       TRY_CAST(fecha_confirmacion_fraude AS DATE) AS fecha_confirmacion_fraude
+FROM read_parquet('{FILES["fraud_labels_train"]}')
 UNION ALL
-SELECT
-    s.id_cuenta,
-    s.split,
-    s.is_fraud,
-    s.tipo_fraude,
-    s.fecha_corte AS cutoff_date
-FROM score s
+SELECT id_cuenta, 'score' AS split, CAST(NULL AS INTEGER) AS is_fraud,
+       CAST(NULL AS VARCHAR) AS tipo_fraude, CAST(NULL AS DATE) AS fecha_confirmacion_fraude
+FROM read_parquet('{FILES["accounts_to_score"]}')
 """)
-
-print("accounts_master:", con.execute("SELECT split, COUNT(*), MIN(cutoff_date), MAX(cutoff_date) FROM accounts_master GROUP BY split").fetchall())
+print("accounts_master:", con.execute(
+    "SELECT split, COUNT(*), AVG(is_fraud) FROM accounts_master GROUP BY split").fetchall())
 
 # ---------------------------------------------------------------------------
-# 3. Transacciones filtradas por cutoff (anti-leakage) + merchants
+# 4. Transacciones filtradas por el corte comun + datos de comercio
+#    (filtro por constante: una sola pasada, sin join previo)
 # ---------------------------------------------------------------------------
 
 con.execute(f"""
-CREATE OR REPLACE TABLE tx_filtered AS
+CREATE OR REPLACE TABLE tx AS
 SELECT
-    m.id_cuenta,
-    m.cutoff_date,
+    t.id_cuenta,
     TRY_CAST(t.timestamp AS TIMESTAMP) AS ts,
-    t.amount,
-    t.account_type,
-    t.canal,
-    t.is_international,
-    t.is_new_ip,
-    t.ip_country,
-    t.id_comercio,
-    mc.merchant_category,
-    mc.merchant_country AS merchant_country,
-    mc.merchant_risk_score
+    t.amount, t.account_type, t.canal,
+    t.is_international, t.is_new_ip, t.ip_country, t.id_comercio,
+    mc.merchant_category, mc.merchant_country, mc.merchant_risk_score
 FROM read_parquet('{FILES["transactions"]}') t
-JOIN accounts_master m ON m.id_cuenta = t.id_cuenta
 LEFT JOIN read_parquet('{FILES["merchants"]}') mc ON mc.id_comercio = t.id_comercio
-WHERE TRY_CAST(t.timestamp AS TIMESTAMP) <= m.cutoff_date
+WHERE TRY_CAST(t.timestamp AS TIMESTAMP) <= TIMESTAMP '{CUTOFF} 23:59:59'
 """)
-
-print("tx_filtered rows:", con.execute("SELECT COUNT(*) FROM tx_filtered").fetchone())
+print("transacciones dentro del corte:", con.execute("SELECT COUNT(*) FROM tx").fetchone()[0])
+print("rango de fechas:", con.execute("SELECT MIN(ts), MAX(ts) FROM tx").fetchone())
 
 # ---------------------------------------------------------------------------
-# 4. Agregados transaccionales por cuenta
+# 5. Agregados transaccionales por cuenta
 # ---------------------------------------------------------------------------
 
-con.execute("""
+con.execute(f"""
 CREATE OR REPLACE TABLE agg_base AS
 SELECT
     id_cuenta,
-    ANY_VALUE(cutoff_date) AS cutoff_date,
     COUNT(*) AS num_tx_total,
     SUM(amount) AS monto_total,
     AVG(amount) AS monto_avg,
@@ -167,106 +147,135 @@ SELECT
     MAX(amount) AS monto_max,
     MIN(amount) AS monto_min,
     MEDIAN(amount) AS monto_mediana,
-    MIN(ts) AS primera_tx,
-    MAX(ts) AS ultima_tx,
+    QUANTILE_CONT(amount, 0.95) AS monto_p95,
     AVG(is_international) AS pct_internacional,
     AVG(is_new_ip) AS pct_ip_nueva,
+    SUM(is_new_ip) AS num_ip_nuevas,
     COUNT(DISTINCT ip_country) AS num_paises_ip_distintos,
     COUNT(DISTINCT canal) AS num_canales_distintos,
     COUNT(DISTINCT id_comercio) AS num_comercios_distintos,
-    COUNT(DISTINCT merchant_category) AS num_categorias_comercio_distintos,
+    COUNT(DISTINCT merchant_category) AS num_categorias_comercio,
+    COUNT(DISTINCT merchant_country) AS num_paises_comercio,
     COUNT(DISTINCT account_type) AS num_tipos_cuenta_distintos,
     AVG(merchant_risk_score) AS merchant_risk_avg,
     MAX(merchant_risk_score) AS merchant_risk_max,
+    STDDEV_POP(merchant_risk_score) AS merchant_risk_std,
+    QUANTILE_CONT(merchant_risk_score, 0.9) AS merchant_risk_p90,
     AVG(CASE WHEN EXTRACT(hour FROM ts) BETWEEN 0 AND 5 THEN 1.0 ELSE 0.0 END) AS pct_horario_nocturno,
     AVG(CASE WHEN dayofweek(ts) IN (0, 6) THEN 1.0 ELSE 0.0 END) AS pct_fin_semana,
-    SUM(CASE WHEN ts >= cutoff_date - INTERVAL 7 DAY THEN 1 ELSE 0 END) AS num_tx_7d,
-    SUM(CASE WHEN ts >= cutoff_date - INTERVAL 30 DAY THEN 1 ELSE 0 END) AS num_tx_30d,
-    SUM(CASE WHEN ts >= cutoff_date - INTERVAL 90 DAY THEN 1 ELSE 0 END) AS num_tx_90d,
-    SUM(CASE WHEN ts >= cutoff_date - INTERVAL 7 DAY THEN amount ELSE 0 END) AS monto_7d,
-    SUM(CASE WHEN ts >= cutoff_date - INTERVAL 30 DAY THEN amount ELSE 0 END) AS monto_30d,
-    SUM(CASE WHEN ts >= cutoff_date - INTERVAL 90 DAY THEN amount ELSE 0 END) AS monto_90d,
-    DATE_DIFF('day', MIN(ts), ANY_VALUE(cutoff_date)) AS dias_antiguedad_transaccional,
-    DATE_DIFF('day', MAX(ts), ANY_VALUE(cutoff_date)) AS dias_desde_ultima_tx
-FROM tx_filtered
+    -- ventanas recientes respecto al corte comun
+    SUM(CASE WHEN ts >= TIMESTAMP '{CUTOFF}' - INTERVAL 7 DAY  THEN 1 ELSE 0 END) AS num_tx_7d,
+    SUM(CASE WHEN ts >= TIMESTAMP '{CUTOFF}' - INTERVAL 30 DAY THEN 1 ELSE 0 END) AS num_tx_30d,
+    SUM(CASE WHEN ts >= TIMESTAMP '{CUTOFF}' - INTERVAL 90 DAY THEN 1 ELSE 0 END) AS num_tx_90d,
+    SUM(CASE WHEN ts >= TIMESTAMP '{CUTOFF}' - INTERVAL 7 DAY  THEN amount ELSE 0 END) AS monto_7d,
+    SUM(CASE WHEN ts >= TIMESTAMP '{CUTOFF}' - INTERVAL 30 DAY THEN amount ELSE 0 END) AS monto_30d,
+    SUM(CASE WHEN ts >= TIMESTAMP '{CUTOFF}' - INTERVAL 90 DAY THEN amount ELSE 0 END) AS monto_90d,
+    SUM(CASE WHEN ts >= TIMESTAMP '{CUTOFF}' - INTERVAL 30 DAY THEN is_international ELSE 0 END) AS num_intl_30d,
+    SUM(CASE WHEN ts >= TIMESTAMP '{CUTOFF}' - INTERVAL 30 DAY THEN is_new_ip ELSE 0 END) AS num_ip_nueva_30d,
+    MIN(ts) AS primera_tx,
+    MAX(ts) AS ultima_tx,
+    DATE_DIFF('day', MIN(ts), TIMESTAMP '{CUTOFF}') AS dias_antiguedad_transaccional,
+    DATE_DIFF('day', MAX(ts), TIMESTAMP '{CUTOFF}') AS dias_desde_ultima_tx,
+    COUNT(DISTINCT DATE_TRUNC('day', ts)) AS num_dias_activos
+FROM tx
 GROUP BY id_cuenta
 """)
 
-# Indices de concentracion (HHI) por canal / comercio / tipo_cuenta:
-# HHI cercano a 1 = toda la actividad concentrada en una sola categoria
-# (util para detectar canalizacion tipica de cuentas mula).
-for col, name in [("canal", "hhi_canal"), ("id_comercio", "hhi_comercio"), ("account_type", "hhi_tipo_cuenta")]:
+# Indices de concentracion Herfindahl (HHI): 1 = toda la actividad en una sola
+# categoria. Senal tipica de cuenta mula (embudo hacia un solo destino/canal).
+for col, name in [("canal", "hhi_canal"), ("id_comercio", "hhi_comercio"),
+                  ("account_type", "hhi_tipo_cuenta"), ("merchant_category", "hhi_categoria")]:
     con.execute(f"""
-    CREATE OR REPLACE TABLE hhi_{name} AS
+    CREATE OR REPLACE TABLE t_{name} AS
     WITH counts AS (
-        SELECT id_cuenta, {col} AS cat, COUNT(*) AS n
-        FROM tx_filtered
-        GROUP BY id_cuenta, {col}
-    ),
-    totals AS (
-        SELECT id_cuenta, SUM(n) AS total FROM counts GROUP BY id_cuenta
+        SELECT id_cuenta, {col} AS cat, COUNT(*) AS n FROM tx GROUP BY 1, 2
+    ), totals AS (
+        SELECT id_cuenta, SUM(n) AS total FROM counts GROUP BY 1
     )
     SELECT c.id_cuenta, SUM(POWER(c.n * 1.0 / t.total, 2)) AS {name}
-    FROM counts c JOIN totals t ON c.id_cuenta = t.id_cuenta
+    FROM counts c JOIN totals t USING (id_cuenta)
     GROUP BY c.id_cuenta
     """)
 
 con.execute("""
 CREATE OR REPLACE TABLE agg_tx AS
-SELECT
-    a.*,
-    hc.hhi_canal,
-    hm.hhi_comercio,
-    ht.hhi_tipo_cuenta,
-    a.num_tx_7d * 1.0 / NULLIF(a.num_tx_90d, 0) AS ratio_tx_7d_90d,
-    a.monto_max / NULLIF(a.monto_avg, 0) AS ratio_pico_promedio
+SELECT a.*,
+       c.hhi_canal, m.hhi_comercio, tc.hhi_tipo_cuenta, cat.hhi_categoria,
+       a.num_tx_7d  * 1.0 / NULLIF(a.num_tx_90d, 0) AS ratio_tx_7d_90d,
+       a.num_tx_30d * 1.0 / NULLIF(a.num_tx_total, 0) AS ratio_tx_30d_total,
+       a.monto_30d / NULLIF(a.monto_total, 0) AS ratio_monto_30d_total,
+       a.monto_max / NULLIF(a.monto_avg, 0) AS ratio_pico_promedio,
+       a.monto_std / NULLIF(a.monto_avg, 0) AS coef_variacion_monto,
+       a.num_tx_total * 1.0 / NULLIF(a.num_dias_activos, 0) AS tx_por_dia_activo,
+       a.num_comercios_distintos * 1.0 / NULLIF(a.num_tx_total, 0) AS ratio_comercios_tx
 FROM agg_base a
-LEFT JOIN hhi_hhi_canal hc ON a.id_cuenta = hc.id_cuenta
-LEFT JOIN hhi_hhi_comercio hm ON a.id_cuenta = hm.id_cuenta
-LEFT JOIN hhi_hhi_tipo_cuenta ht ON a.id_cuenta = ht.id_cuenta
+LEFT JOIN t_hhi_canal c USING (id_cuenta)
+LEFT JOIN t_hhi_comercio m USING (id_cuenta)
+LEFT JOIN t_hhi_tipo_cuenta tc USING (id_cuenta)
+LEFT JOIN t_hhi_categoria cat USING (id_cuenta)
 """)
 
 # ---------------------------------------------------------------------------
-# 5. Union con cuentas SIN transacciones en la ventana (deben quedar en la
-#    tabla final con NULLs/ceros, no desaparecer)
+# 6. device_mobile_activity AGREGADO por cuenta (evita duplicar filas)
 # ---------------------------------------------------------------------------
 
-con.execute("""
-CREATE OR REPLACE TABLE agg_tx_full AS
-SELECT m.id_cuenta, m.split, m.is_fraud, m.tipo_fraude, m.cutoff_date, a.* EXCLUDE (id_cuenta, cutoff_date)
-FROM accounts_master m
-LEFT JOIN agg_tx a ON a.id_cuenta = m.id_cuenta
+con.execute(f"""
+CREATE OR REPLACE TABLE dev_agg AS
+SELECT
+    id_cuenta,
+    COUNT(*) AS num_dispositivos,
+    COUNT(DISTINCT device_type) AS num_tipos_dispositivo,
+    MAX(is_rooted_or_jailbreak) AS is_rooted_or_jailbreak,
+    MAX(is_emulator) AS is_emulator,
+    MAX(num_cambios_dispositivo_12m) AS num_cambios_dispositivo_12m,
+    MIN(dias_desde_ultimo_cambio) AS dias_desde_ultimo_cambio,
+    SUM(num_sesiones_30d) AS num_sesiones_30d,
+    MAX(num_ciudades_acceso_30d) AS num_ciudades_acceso_30d,
+    MAX(pct_accesos_fuera_ciudad) AS pct_accesos_fuera_ciudad,
+    MAX(TRY_CAST(ultimo_login AS TIMESTAMP)) AS ultimo_login,
+    ANY_VALUE(device_type) AS device_type,
+    ANY_VALUE(ip_country_ultimo) AS ip_country_ultimo,
+    MAX(CASE WHEN ip_country_ultimo <> 'CO' THEN 1 ELSE 0 END) AS ip_ultima_fuera_co
+FROM read_parquet('{FILES["device_mobile_activity"]}')
+GROUP BY id_cuenta
 """)
+print("dev_agg filas:", con.execute("SELECT COUNT(*) FROM dev_agg").fetchone()[0], "(debe ser 180000)")
 
 # ---------------------------------------------------------------------------
-# 6. Join con tablas estaticas (customers, credit_indebtedness,
-#    device_mobile_activity, data_update_history)
+# 7. Tabla final: cuentas x (features transaccionales + snapshots)
+#    LEFT JOIN desde accounts_master para no perder cuentas sin transacciones
 # ---------------------------------------------------------------------------
 
 con.execute(f"""
 CREATE OR REPLACE TABLE final_features AS
 SELECT
-    f.*,
-    c.id_cliente, c.edad, c.genero, c.ciudad, c.antiguedad_dias, c.segmento,
-    c.nivel_educativo, c.ocupacion, c.tiene_2fa, c.producto_principal,
-    ci.score_crediticio_externo, ci.dias_mora_max, ci.num_moras_12m, ci.capacidad_pago_pct,
-    d.device_type, d.is_rooted_or_jailbreak, d.is_emulator,
-    d.num_cambios_dispositivo_12m, d.dias_desde_ultimo_cambio,
-    d.num_sesiones_30d, d.num_ciudades_acceso_30d, d.pct_accesos_fuera_ciudad,
-    d.ip_country_ultimo,
-    h.num_actualizaciones_12m, h.num_cambios_telefono, h.num_cambios_email,
-    h.num_cambios_direccion, h.dias_desde_ultimo_kyc
-FROM agg_tx_full f
-LEFT JOIN read_parquet('{FILES["customers"]}') c ON c.id_cuenta = f.id_cuenta
-LEFT JOIN read_parquet('{FILES["credit_indebtedness"]}') ci ON ci.id_cuenta = f.id_cuenta
-LEFT JOIN read_parquet('{FILES["device_mobile_activity"]}') d ON d.id_cuenta = f.id_cuenta
-LEFT JOIN read_parquet('{FILES["data_update_history"]}') h ON h.id_cuenta = f.id_cuenta
+    am.id_cuenta, am.split, am.is_fraud, am.tipo_fraude, am.fecha_confirmacion_fraude,
+    DATE '{CUTOFF}' AS fecha_corte,
+    a.* EXCLUDE (id_cuenta),
+    c.* EXCLUDE (id_cuenta),
+    ci.* EXCLUDE (id_cuenta),
+    d.* EXCLUDE (id_cuenta),
+    h.* EXCLUDE (id_cuenta),
+    DATE_DIFF('day', d.ultimo_login, TIMESTAMP '{CUTOFF}') AS dias_desde_ultimo_login,
+    CASE WHEN d.ultimo_login > TIMESTAMP '{CUTOFF} 23:59:59' THEN 1 ELSE 0 END AS flag_login_post_corte
+FROM accounts_master am
+LEFT JOIN agg_tx a USING (id_cuenta)
+LEFT JOIN read_parquet('{FILES["customers"]}') c USING (id_cuenta)
+LEFT JOIN read_parquet('{FILES["credit_indebtedness"]}') ci USING (id_cuenta)
+LEFT JOIN dev_agg d USING (id_cuenta)
+LEFT JOIN read_parquet('{FILES["data_update_history"]}') h USING (id_cuenta)
 """)
 
-n_rows, n_cols = con.execute("SELECT COUNT(*), (SELECT COUNT(*) FROM pragma_table_info('final_features')) FROM final_features").fetchone()
-print(f"final_features: {n_rows} filas x {n_cols} columnas")
+n_rows = con.execute("SELECT COUNT(*) FROM final_features").fetchone()[0]
+n_cols = len(con.execute("DESCRIBE final_features").fetchall())
+print(f"\nfinal_features: {n_rows} filas x {n_cols} columnas  (filas esperadas: 180000)")
+assert n_rows == 180000, f"ERROR: se esperaban 180000 filas, hay {n_rows} (revisa duplicados en los joins)"
 
-con.execute(f"COPY final_features TO '{OUT_PATH}' (FORMAT PARQUET)")
-size_mb = os.path.getsize(OUT_PATH) / 1e6
-print(f"Guardado: {OUT_PATH} ({size_mb:.1f} MB)")
+print("\nsin transacciones en la ventana:",
+      con.execute("SELECT COUNT(*) FROM final_features WHERE num_tx_total IS NULL").fetchone()[0])
+print("tasa de fraude por split:",
+      con.execute("SELECT split, COUNT(*), AVG(is_fraud) FROM final_features GROUP BY split").fetchall())
+
+con.execute(f"COPY final_features TO '{OUT_PATH}' (FORMAT PARQUET, COMPRESSION ZSTD)")
+print(f"\nGuardado: {OUT_PATH} ({os.path.getsize(OUT_PATH)/1e6:.1f} MB)")
 print("Descarga este archivo desde el panel Output del notebook y subelo al chat.")
