@@ -1,0 +1,3 @@
+K= 3  entrena con 66.7% de las etiquetas  P@300=0.2000 [0.21 0.19]  AUC=0.6223  (40s)
+K= 5  entrena con 80.0% de las etiquetas  P@300=0.2183 [0.2167 0.22  ]  AUC=0.6230  (110s)
+K=10  entrena con 90.0% de las etiquetas  P@300=0.2067 [0.2133 0.2   ]  AUC=0.6225  (254s)

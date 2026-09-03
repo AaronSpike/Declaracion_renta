@@ -1,0 +1,4 @@
+A base (35 feats, produccion)    n_feat 35  AUC 0.6223  P@300 0.2156 +/-0.0118  [0.193 0.233 0.22 ]
+C podado (18 feats)              n_feat 18  AUC 0.6225  P@300 0.2322 +/-0.0048  [0.233 0.24  0.223]
+D podado + n_banderas            n_feat 19  AUC 0.6211  P@300 0.2356 +/-0.0062  [0.24  0.243 0.223]
+E podado + banderas              n_feat 30  AUC 0.6208  P@300 0.2289 +/-0.0068  [0.23  0.24  0.217]

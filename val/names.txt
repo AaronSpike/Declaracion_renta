@@ -1,0 +1,12 @@
+ganadora_s1
+ganadora_s2
+ganadora_s3
+ganadora_s4
+ganadora_s5
+ganadora_s6
+someros
+lento_reg
+pos_w5
+mcs1000
+sobreajuste
+corta_400

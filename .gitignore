@@ -7,3 +7,9 @@ data/
 !submissions/*.csv
 __pycache__/
 *.pyc
+
+# Intermedios de experimentos: los scripts y logs si se versionan
+exp/*.npy
+exp/*.parquet
+val/*.npy
+val/*.parquet

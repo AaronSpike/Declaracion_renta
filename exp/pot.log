@@ -1,0 +1,3 @@
+n= 135038   P@300 == mismo percentil que P@100 sobre 44.962
+
+A base (actual en produccion)        AUC 0.6227  P@300 0.2222 +/-0.0040  [0.2167 0.23   0.22  ]
